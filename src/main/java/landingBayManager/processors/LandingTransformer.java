@@ -1,11 +1,14 @@
 package landingBayManager.processors;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import org.apache.kafka.streams.processor.Processor;
+import org.apache.kafka.streams.KeyValue;
+import org.apache.kafka.streams.kstream.Transformer;
 import org.apache.kafka.streams.processor.ProcessorContext;
+import org.apache.kafka.streams.state.KeyValueIterator;
 import org.apache.kafka.streams.state.TimestampedKeyValueStore;
+import org.apache.kafka.streams.state.ValueAndTimestamp;
 
-public class LandingProcessor implements Processor<String, JsonNode> {
+public class LandingTransformer implements Transformer<String, JsonNode, KeyValue<String, JsonNode>> {
 
     private ProcessorContext context;
     private TimestampedKeyValueStore<String, JsonNode> bayStates;
@@ -19,9 +22,10 @@ public class LandingProcessor implements Processor<String, JsonNode> {
     }
 
     @Override
-    public void process(String s, JsonNode jsonNode) {
+    public KeyValue<String, JsonNode> transform(String s, JsonNode jsonNode) {
 
     }
+
 
     @Override
     public void close() {

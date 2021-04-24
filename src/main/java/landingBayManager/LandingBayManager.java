@@ -17,6 +17,7 @@
 package landingBayManager;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import landingBayManager.processors.BayAssignmentTransformer;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
@@ -28,13 +29,13 @@ import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.Topology;
 import org.apache.kafka.streams.kstream.Consumed;
-import landingBayManager.processors.LandingProcessor;
+import landingBayManager.processors.LandingTransformer;
 import landingBayManager.processors.TakeOffProcessor;
+import org.apache.kafka.streams.kstream.GlobalKTable;
 import org.apache.kafka.streams.state.StoreBuilder;
 import org.apache.kafka.streams.state.Stores;
 import org.apache.kafka.streams.state.TimestampedKeyValueStore;
 
-import java.util.ArrayList;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 
@@ -62,13 +63,23 @@ public class LandingBayManager {
                         Serdes.String(),
                         jsonSerde);
 
+
         builder.addStateStore(bayStateStoreBuilder);
 
         final Consumed<String, JsonNode> consumed = Consumed.with(Serdes.String(), jsonSerde);
 
+        GlobalKTable<String, JsonNode> landingBays = builder.globalTable("landingBays", consumed);
+        String queryString = landingBays.queryableStoreName();
+
+        builder.stream("LandingBayManager", consumed)
+                .filter((key, valueNode) -> key.equals("bayAssignmentRequest"))
+                .transform(BayAssignmentTransformer::new, "bayStates")
+                .to("LandingBayManager");
+
         builder.stream("LandingBayManager", consumed)
                 .filter((key, valueNode) -> key.equals("landingRequest"))
-                .process(LandingProcessor::new, "bayStates");
+                .transform(LandingTransformer::new, "bayStates")
+                .to("LandingBayManager");
 
         builder.stream("LandingBayManager", consumed)
                 .filter((key, valueNode) -> key.equals("takeOffRequest"))
