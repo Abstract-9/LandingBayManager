@@ -5,10 +5,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.kstream.Transformer;
 import org.apache.kafka.streams.processor.ProcessorContext;
-import org.apache.kafka.streams.state.KeyValueIterator;
 import org.apache.kafka.streams.state.KeyValueStore;
 
-public class LandingTransformer implements Transformer<String, JsonNode, KeyValue<String, JsonNode>> {
+public class TakeOffTransformer implements Transformer<String, JsonNode, KeyValue<String, JsonNode>> {
 
     private ProcessorContext context;
     private KeyValueStore<String, JsonNode> bayStates;
@@ -30,7 +29,7 @@ public class LandingTransformer implements Transformer<String, JsonNode, KeyValu
         if (bay.get("in_use").booleanValue()) {
             ObjectNode response = jsonNode.deepCopy();
             response.put("status", "busy");
-            return new KeyValue<>("LandingResponse", response);
+            return new KeyValue<>("TakeOffResponse", response);
         } else {
             ObjectNode bayWr = bay.deepCopy();
             bayWr.put("in_use", true);
@@ -38,10 +37,9 @@ public class LandingTransformer implements Transformer<String, JsonNode, KeyValu
 
             ObjectNode response = jsonNode.deepCopy();
             response.put("status", "free");
-            return new KeyValue<>("LandingResponse", response);
+            return new KeyValue<>("TakeOffResponse", response);
         }
     }
-
 
     @Override
     public void close() {

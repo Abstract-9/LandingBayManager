@@ -30,7 +30,7 @@ import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.Topology;
 import org.apache.kafka.streams.kstream.Consumed;
 import landingBayManager.processors.LandingTransformer;
-import landingBayManager.processors.TakeOffProcessor;
+import landingBayManager.processors.TakeOffTransformer;
 import org.apache.kafka.streams.kstream.GlobalKTable;
 import org.apache.kafka.streams.state.StoreBuilder;
 import org.apache.kafka.streams.state.Stores;
@@ -83,7 +83,8 @@ public class LandingBayManager {
 
         builder.stream("LandingBayManager", consumed)
                 .filter((key, valueNode) -> key.equals("takeOffRequest"))
-                .process(TakeOffProcessor::new, "bayStates");
+                .transform(TakeOffTransformer::new, "bayStates")
+                .to("LandingBayManager");
 
         final Topology topology = builder.build();
         final KafkaStreams streams = new KafkaStreams(topology, props);
