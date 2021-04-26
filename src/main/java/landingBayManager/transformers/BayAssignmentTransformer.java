@@ -1,7 +1,6 @@
-package landingBayManager.processors;
+package landingBayManager.transformers;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.kstream.Transformer;
@@ -13,13 +12,11 @@ public class BayAssignmentTransformer implements Transformer<String, JsonNode, K
 
     private ProcessorContext context;
     private KeyValueStore<String, JsonNode> bayStates;
-    private ObjectMapper mapper;
 
     @Override
     public void init(ProcessorContext processorContext) {
         this.context = processorContext;
         this.bayStates = processorContext.getStateStore("BayStates");
-        this.mapper = new ObjectMapper();
     }
 
     @Override

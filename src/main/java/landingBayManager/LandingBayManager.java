@@ -17,7 +17,8 @@
 package landingBayManager;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import landingBayManager.processors.BayAssignmentTransformer;
+import landingBayManager.transformers.BayAssignmentTransformer;
+import landingBayManager.transformers.BayClearedTransformer;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
@@ -29,8 +30,7 @@ import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.Topology;
 import org.apache.kafka.streams.kstream.Consumed;
-import landingBayManager.processors.LandingTransformer;
-import landingBayManager.processors.TakeOffTransformer;
+import landingBayManager.transformers.BayAccessTransformer;
 import org.apache.kafka.streams.kstream.GlobalKTable;
 import org.apache.kafka.streams.state.StoreBuilder;
 import org.apache.kafka.streams.state.Stores;
@@ -77,13 +77,13 @@ public class LandingBayManager {
                 .to("LandingBayManager");
 
         builder.stream("LandingBayManager", consumed)
-                .filter((key, valueNode) -> key.equals("landingRequest"))
-                .transform(LandingTransformer::new, "bayStates")
+                .filter((key, valueNode) -> key.equals("bayCleared"))
+                .transform(BayClearedTransformer::new, "bayStates")
                 .to("LandingBayManager");
 
         builder.stream("LandingBayManager", consumed)
-                .filter((key, valueNode) -> key.equals("takeOffRequest"))
-                .transform(TakeOffTransformer::new, "bayStates")
+                .filter((key, valueNode) -> key.equals("bayAccessRequest"))
+                .transform(BayAccessTransformer::new, "bayStates")
                 .to("LandingBayManager");
 
         final Topology topology = builder.build();
