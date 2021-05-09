@@ -1,28 +1,34 @@
-package landingBayManager.transformers;
+package landingBayManager.processors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.kafka.common.protocol.types.Field;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.kstream.Transformer;
-import org.apache.kafka.streams.processor.ProcessorContext;
+import org.apache.kafka.streams.processor.api.Processor;
+import org.apache.kafka.streams.processor.api.ProcessorContext;
+import org.apache.kafka.streams.processor.api.Record;
 import org.apache.kafka.streams.state.KeyValueStore;
 
-public class BayAccessTransformer implements Transformer<String, JsonNode, KeyValue<String, JsonNode>> {
+public class BayAccessProcessor implements Processor<String, JsonNode, String, JsonNode> {
 
-    private ProcessorContext context;
+    private ProcessorContext<String, JsonNode> context;
     private KeyValueStore<String, JsonNode> bayStates;
 
     @Override
-    public void init(ProcessorContext processorContext) {
+    public void init(ProcessorContext<String, JsonNode> processorContext) {
         this.context = processorContext;
 
-        this.bayStates = processorContext.getStateStore("bayStates");
+        this.bayStates = processorContext.getStateStore("BayStore");
 
     }
 
     @Override
-    public KeyValue<String, JsonNode> transform(String s, JsonNode jsonNode) {
+    public void process(Record<String, JsonNode> record) {
+        if (!record.key().equals("BayAccessRequest")) return;
+
+        JsonNode jsonNode = record.value();
 
         JsonNode bay = this.bayStates.get(jsonNode.get("bay").textValue());
         ObjectNode bayWr = bay.deepCopy();
@@ -42,7 +48,10 @@ public class BayAccessTransformer implements Transformer<String, JsonNode, KeyVa
             response.put("status", "free");
         }
 
-        return new KeyValue<>("AccessResponse", response);
+        this.context.forward(
+                new Record<>("AccessResponse", response, System.currentTimeMillis()),
+                "Main-Output"
+        );
     }
 
 
