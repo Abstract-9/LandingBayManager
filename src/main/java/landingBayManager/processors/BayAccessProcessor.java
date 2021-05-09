@@ -37,19 +37,25 @@ public class BayAccessProcessor implements Processor<String, JsonNode, String, J
         if (bay.get("in_use").booleanValue()) {
             // Put this drone in the queue
             ((ArrayNode) bayWr.get("queue")).add(jsonNode.get("drone_id").textValue());
-            this.bayStates.put(jsonNode.get("bay").textValue(), bayWr);
+            this.context.forward(
+                    new Record<String, JsonNode>(
+                            jsonNode.get("bay").textValue(), bayWr, System.currentTimeMillis()), "BayState"
+            );
 
             // Now, return the response. Drone will wait until we tell it that it can access the bay.
             response.put("status", "busy");
         } else {
             bayWr.put("in_use", true);
-            this.bayStates.put(jsonNode.get("bay").textValue(), bayWr);
+            this.context.forward(
+                    new Record<String, JsonNode>(jsonNode.get("bay").textValue(), bayWr, System.currentTimeMillis()),
+                    "BayState"
+            );
 
             response.put("status", "free");
         }
 
         this.context.forward(
-                new Record<>("AccessResponse", response, System.currentTimeMillis()),
+                new Record<>("BayAccessResponse", response, System.currentTimeMillis()),
                 "Main-Output"
         );
     }

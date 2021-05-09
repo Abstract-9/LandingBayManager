@@ -3,15 +3,14 @@ package landingBayManager.processors;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import landingBayManager.LandingBayManager;
 import landingBayManager.serdes.JSONSerde;
 import org.apache.kafka.common.serialization.Deserializer;
-import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.connect.json.JsonDeserializer;
 import org.apache.kafka.connect.json.JsonSerializer;
 import org.apache.kafka.streams.*;
-
 import org.apache.kafka.streams.state.KeyValueStore;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -19,11 +18,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Properties;
 
-import landingBayManager.LandingBayManager;
-
 import static org.junit.jupiter.api.Assertions.*;
 
-public class BayAssignmentProcessorTests {
+public class BayAccessProcessorTests {
 
     private static TopologyTestDriver testDriver;
     private static TestInputTopic<String, JsonNode> inputTopic;
@@ -73,24 +70,23 @@ public class BayAssignmentProcessorTests {
     }
 
     @Test
-    void testAssignmentRequest() {
+    void testAccessRequest() {
         ObjectNode drone = new ObjectNode(nodeFactory);
         drone.put("drone_id", "0x1");
-        inputTopic.pipeInput("BayAssignmentRequest", drone);
+        drone.put("bay", "1");
+        inputTopic.pipeInput("BayAccessRequest", drone);
 
         // First, make sure that theres something in the output topic. If there isn't, it'll throw an error when we try
         // to read from it.
         assertFalse(outputTopic.isEmpty());
-        // Read the output event and make sure that it matches the expected results
+
         KeyValue<String, JsonNode> result = outputTopic.readKeyValue();
-        assertEquals("BayAssignment", result.key);
-        assertEquals("success", result.value.get("status").textValue());
+        assertEquals("BayAccessResponse", result.key);
+        assertEquals("free", result.value.get("status").textValue());
         assertEquals("0x1", result.value.get("drone_id").textValue());
 
-        // Check the state store and ensure that it was also updated properly
+        // Make sure that the state store was updated accordingly
         JsonNode bay = bayStates.get("1");
-        assertEquals(1, bay.get("occupied_bays").intValue());
-        assertFalse(bay.get("in_use").booleanValue());
+        assertTrue(bay.get("in_use").booleanValue());
     }
-
 }
