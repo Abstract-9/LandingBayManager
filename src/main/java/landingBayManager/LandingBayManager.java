@@ -47,10 +47,6 @@ import java.util.concurrent.CountDownLatch;
  */
 public class LandingBayManager {
 
-    static final String MAIN_TOPIC = "LandingBayManager";
-    static final String BAY_STORE_TOPIC = "LandingBays";
-    static final String BAY_STORE = "BayStates";
-
     public static void main(String[] args) {
         Properties props = new Properties();
         props.put(StreamsConfig.APPLICATION_ID_CONFIG, "streams-landing-bay-manager");
@@ -73,37 +69,41 @@ public class LandingBayManager {
 
 
 
-        topBuilder.addSource("Main-Topic", MAIN_TOPIC);
+        topBuilder.addSource(Constants.MAIN_TOPIC, Constants.MAIN_TOPIC);
 
         topBuilder
-                .addProcessor("BayAssignment", BayAssignmentProcessor::new, "Main-Topic")
-                .addProcessor("BayAccess", BayAccessProcessor::new, "Main-Topic")
-                .addProcessor("BayCleared", BayClearedProcessor::new, "Main-Topic");
+                .addProcessor("BayAssignment", BayAssignmentProcessor::new, Constants.MAIN_TOPIC)
+                .addProcessor("BayAccess", BayAccessProcessor::new, Constants.MAIN_TOPIC)
+                .addProcessor("BayCleared", BayClearedProcessor::new, Constants.MAIN_TOPIC);
+
+
 
         if (!testing) {
             topBuilder.addGlobalStore(
-                    Stores.keyValueStoreBuilder(Stores.persistentKeyValueStore("BayStore"), Serdes.String(), jsonSerde),
+                    Stores.keyValueStoreBuilder(Stores.persistentKeyValueStore(Constants.BAY_STORE_NAME), Serdes.String(), jsonSerde),
                     "baySource",
                     Serdes.String().deserializer(),
                     jsonDeserializer,
-                    BAY_STORE_TOPIC,
+                    Constants.BAY_STORE_TOPIC,
                     "Bay-State-Updater",
-                    () -> new GlobalStoreUpdater<>("BayStore")
+                    () -> new GlobalStoreUpdater<>(Constants.BAY_STORE_NAME)
             );
         } else {
             topBuilder.addGlobalStore(
-                    Stores.keyValueStoreBuilder(Stores.persistentKeyValueStore("BayStore"), Serdes.String(), jsonSerde).withLoggingDisabled(),
+                    Stores.keyValueStoreBuilder(Stores.persistentKeyValueStore(Constants.BAY_STORE_NAME), Serdes.String(), jsonSerde).withLoggingDisabled(),
                     "baySource",
                     Serdes.String().deserializer(),
                     jsonDeserializer,
-                    BAY_STORE_TOPIC,
+                    Constants.BAY_STORE_TOPIC,
                     "Bay-State-Updater",
-                    () -> new GlobalStoreUpdater<>("BayStore")
+                    () -> new GlobalStoreUpdater<>(Constants.BAY_STORE_NAME)
             );
         }
 
-        topBuilder.addSink("Main-Output", "LandingBayManager", "BayAccess", "BayAssignment", "BayCleared")
-                .addSink("BayState", BAY_STORE_TOPIC, "BayAccess", "BayAssignment", "BayCleared");
+        topBuilder.addSink(Constants.MAIN_OUTPUT_NAME, Constants.MAIN_TOPIC,
+                Constants.ACCESS_PROCESSOR_NAME, Constants.ASSIGNMENT_PROCESSOR_NAME, Constants.CLEARED_PROCESSOR_NAME)
+                .addSink(Constants.STORE_OUTPUT_NAME, Constants.BAY_STORE_TOPIC,
+                        Constants.ACCESS_PROCESSOR_NAME, Constants.ASSIGNMENT_PROCESSOR_NAME, Constants.CLEARED_PROCESSOR_NAME);
 
         return topBuilder;
     }
@@ -130,10 +130,8 @@ public class LandingBayManager {
         System.exit(0);
     }
 
-
-
-
     // Processor that keeps the global store updated.
+    // From: https://github.com/confluentinc/kafka-streams-examples/blob/6.1.1-post/src/main/java/io/confluent/examples/streams/GlobalStoresExample.java
     private static class GlobalStoreUpdater<K, V, KIn, KOut> implements Processor<K, V, KIn, KOut> {
 
         private final String storeName;
@@ -162,6 +160,23 @@ public class LandingBayManager {
         public void close() {
             // No-op
         }
+
+    }
+
+    // The kafka streams processor api uses a lot of internal names, and we need to refer to a few external topics.
+    // This just helps keep everything in one place.
+    public static class Constants {
+        // Topics
+        public static final String MAIN_TOPIC = "LandingBayManager";
+        public static final String BAY_STORE_TOPIC = "LandingBays";
+
+        // Internal names
+        public static final String BAY_STORE_NAME = "BayStore";
+        public static final String STORE_OUTPUT_NAME = "BayState";
+        public static final String ASSIGNMENT_PROCESSOR_NAME = "BayAssignment";
+        public static final String ACCESS_PROCESSOR_NAME = "BayAccess";
+        public static final String CLEARED_PROCESSOR_NAME = "BayCleared";
+        public static final String MAIN_OUTPUT_NAME = "Main-Output";
 
     }
 }

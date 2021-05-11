@@ -2,15 +2,15 @@ package landingBayManager.processors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import landingBayManager.util.Location;
 import org.apache.kafka.streams.KeyValue;
-import org.apache.kafka.streams.processor.To;
 import org.apache.kafka.streams.processor.api.Processor;
 import org.apache.kafka.streams.processor.api.ProcessorContext;
 import org.apache.kafka.streams.processor.api.Record;
 import org.apache.kafka.streams.state.KeyValueIterator;
 import org.apache.kafka.streams.state.KeyValueStore;
-import org.apache.kafka.streams.state.ValueAndTimestamp;
-import org.apache.kafka.common.serialization.Serdes.ByteArraySerde;
+
+import landingBayManager.LandingBayManager.Constants;
 
 import java.util.HashMap;
 
@@ -22,11 +22,7 @@ public class BayAssignmentProcessor implements Processor<String, JsonNode, Strin
     @Override
     public void init(ProcessorContext<String, JsonNode> processorContext) {
         this.context = processorContext;
-        this.bayStates = processorContext.getStateStore("BayStore");
-
-        // Setup serdes, because this is the only place I can do it?
-        this.context.valueSerde().configure(new HashMap<String, JsonNode>(), false);
-
+        this.bayStates = processorContext.getStateStore(Constants.BAY_STORE_NAME);
     }
 
     @Override
@@ -34,6 +30,8 @@ public class BayAssignmentProcessor implements Processor<String, JsonNode, Strin
         if (!record.key().equals("BayAssignmentRequest")) return;
         //TODO: Figure out closest available landing bay
         // For now, I'll just use any available
+
+        boolean bayAssigned = false;
 
         JsonNode jsonNode = record.value();
 
@@ -48,26 +46,33 @@ public class BayAssignmentProcessor implements Processor<String, JsonNode, Strin
                 ObjectNode newStatus = bayStatus.deepCopy();
                 newStatus.put("occupied_bays", bayStatus.get("occupied_bays").intValue() + 1);
                 // We're taking a space, so we'll update the bay by forwarding the new status to the bay state Topic
-                this.context.forward(new Record<String, JsonNode>(bay.key, newStatus, System.currentTimeMillis()), "BayState");
+                this.context.forward(
+                        new Record<String, JsonNode>(bay.key, newStatus, System.currentTimeMillis()),
+                        Constants.STORE_OUTPUT_NAME
+                );
                 newStatus.remove("occupied_bays");
                 newStatus.remove("bay_count");
                 newStatus.put("status", "success");
                 newStatus.put("drone_id", jsonNode.get("drone_id").textValue());
                 this.context.forward(
                         new Record<String, JsonNode>("BayAssignment", newStatus, System.currentTimeMillis()),
-                        "Main-Output"
+                        Constants.MAIN_OUTPUT_NAME
                 );
+                bayAssigned = true;
+                break;
             }
         }
 
-        ObjectNode resultStatus = jsonNode.deepCopy();
-        resultStatus.removeAll();
-        resultStatus.put("drone_id", jsonNode.get("drone_id").textValue());
-        resultStatus.put("status", "error");
-        this.context.forward(
-                new Record<String, JsonNode>("BayAssignment", resultStatus, System.currentTimeMillis()),
-                "Main-Output"
-        );
+        if (!bayAssigned) {
+            ObjectNode resultStatus = jsonNode.deepCopy();
+            resultStatus.removeAll();
+            resultStatus.put("drone_id", jsonNode.get("drone_id").textValue());
+            resultStatus.put("status", "error");
+            this.context.forward(
+                    new Record<String, JsonNode>("BayAssignment", resultStatus, System.currentTimeMillis()),
+                    Constants.MAIN_OUTPUT_NAME
+            );
+        }
     }
 
     @Override
