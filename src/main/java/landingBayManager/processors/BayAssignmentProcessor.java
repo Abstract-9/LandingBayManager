@@ -12,6 +12,8 @@ import org.apache.kafka.streams.state.KeyValueStore;
 
 import landingBayManager.LandingBayManager.Constants;
 
+import java.security.Key;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 public class BayAssignmentProcessor implements Processor<String, JsonNode, String, JsonNode> {
@@ -25,11 +27,10 @@ public class BayAssignmentProcessor implements Processor<String, JsonNode, Strin
         this.bayStates = processorContext.getStateStore(Constants.BAY_STORE_NAME);
     }
 
+    //TODO distance-biased decision making implemented. Gotta make tests.
     @Override
     public void process(Record<String, JsonNode> record) {
         if (!record.key().equals("BayAssignmentRequest")) return;
-        //TODO: Figure out closest available landing bay
-        // For now, I'll just use any available
 
         boolean bayAssigned = false;
 
@@ -37,14 +38,41 @@ public class BayAssignmentProcessor implements Processor<String, JsonNode, Strin
 
         KeyValueIterator<String, JsonNode> iter = this.bayStates.all();
 
-        while(iter.hasNext()) {
-            KeyValue<String, JsonNode> bay = iter.next();
+        // The bays available for any one drone shouldn't be too big, so for now we can just sort them all into an array.
+        // THIS WILL NEED TO BE MORE EFFICIENT IF DRONES HAVE ACCESS TO MANY, MANY LANDING BAYS
+        ArrayList<KeyValue<String, JsonNode>> bayList = new ArrayList<>();
+        iter.forEachRemaining(bayList::add);
+
+        Location droneLocation = new Location(
+                jsonNode.get("latitude").doubleValue(),
+                jsonNode.get("longitude").doubleValue(),
+                jsonNode.get("altitude").doubleValue()
+        );
+
+        // Sort the landing bays by distance
+        bayList.sort((KeyValue<String, JsonNode> bay1, KeyValue<String, JsonNode> bay2) -> {
+            Location loc1 = new Location(
+                    bay1.value.get("geometry").get("latitude").doubleValue(),
+                    bay1.value.get("geometry").get("longitude").doubleValue(),
+                    0);
+            Location loc2 = new Location(
+                    bay2.value.get("geometry").get("latitude").doubleValue(),
+                    bay2.value.get("geometry").get("longitude").doubleValue(),
+                    0);
+
+            return (int) Math.floor(droneLocation.getDistanceTo(loc1)) - (int) Math.floor(droneLocation.getDistanceTo(loc2));
+        });
+
+        // Now that the list is sorted, we can just go through in order.
+        for (KeyValue<String, JsonNode> bay : bayList) {
 
             JsonNode bayStatus = bay.value;
+
             // Check if the bay in question has free space
             if (bayStatus.get("occupied_bays").intValue() < bayStatus.get("bay_count").intValue()) {
                 ObjectNode newStatus = bayStatus.deepCopy();
                 newStatus.put("occupied_bays", bayStatus.get("occupied_bays").intValue() + 1);
+
                 // We're taking a space, so we'll update the bay by forwarding the new status to the bay state Topic
                 this.context.forward(
                         new Record<String, JsonNode>(bay.key, newStatus, System.currentTimeMillis()),
