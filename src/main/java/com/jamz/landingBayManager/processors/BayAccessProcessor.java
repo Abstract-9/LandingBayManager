@@ -1,4 +1,4 @@
-package landingBayManager.processors;
+package com.jamz.landingBayManager.processors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -8,7 +8,7 @@ import org.apache.kafka.streams.processor.api.ProcessorContext;
 import org.apache.kafka.streams.processor.api.Record;
 import org.apache.kafka.streams.state.KeyValueStore;
 
-import landingBayManager.LandingBayManager.Constants;
+import com.jamz.landingBayManager.LandingBayManager.Constants;
 
 public class BayAccessProcessor implements Processor<String, JsonNode, String, JsonNode> {
 
@@ -25,7 +25,7 @@ public class BayAccessProcessor implements Processor<String, JsonNode, String, J
 
     @Override
     public void process(Record<String, JsonNode> record) {
-        if (!record.key().equals("BayAccessRequest")) return;
+        if (!record.key().equals("BayAccessRequest") && !record.key().equals("BayAccessUpdate")) return;
 
         JsonNode jsonNode = record.value();
 

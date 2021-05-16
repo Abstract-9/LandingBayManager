@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package landingBayManager;
+package com.jamz.landingBayManager;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import landingBayManager.processors.BayAccessProcessor;
-import landingBayManager.processors.BayAssignmentProcessor;
-import landingBayManager.processors.BayClearedProcessor;
-import landingBayManager.serdes.JSONSerde;
+import com.jamz.landingBayManager.processors.BayAccessProcessor;
+import com.jamz.landingBayManager.processors.BayAssignmentProcessor;
+import com.jamz.landingBayManager.processors.BayClearedProcessor;
+import com.jamz.landingBayManager.serdes.JSONSerde;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;

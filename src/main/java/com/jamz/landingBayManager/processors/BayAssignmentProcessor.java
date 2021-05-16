@@ -1,8 +1,8 @@
-package landingBayManager.processors;
+package com.jamz.landingBayManager.processors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import landingBayManager.util.Location;
+import com.jamz.landingBayManager.util.Location;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.processor.api.Processor;
 import org.apache.kafka.streams.processor.api.ProcessorContext;
@@ -10,11 +10,9 @@ import org.apache.kafka.streams.processor.api.Record;
 import org.apache.kafka.streams.state.KeyValueIterator;
 import org.apache.kafka.streams.state.KeyValueStore;
 
-import landingBayManager.LandingBayManager.Constants;
+import com.jamz.landingBayManager.LandingBayManager.Constants;
 
-import java.security.Key;
 import java.util.ArrayList;
-import java.util.HashMap;
 
 public class BayAssignmentProcessor implements Processor<String, JsonNode, String, JsonNode> {
 

@@ -1,4 +1,4 @@
-package landingBayManager.serdes;
+package com.jamz.landingBayManager.serdes;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.kafka.connect.json.JsonDeserializer;

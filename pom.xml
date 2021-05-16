@@ -21,7 +21,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>jamz.fleetManager</groupId>
-    <artifactId>landingBayManager</artifactId>
+    <artifactId>com.jamz.landingBayManager</artifactId>
     <version>0.1</version>
     <packaging>jar</packaging>
 

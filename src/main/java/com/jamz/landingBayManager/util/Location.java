@@ -1,7 +1,7 @@
-package landingBayManager.util;
+package com.jamz.landingBayManager.util;
 
 public class Location {
-    private double latitude, longitude, altitude;
+    public double latitude, longitude, altitude;
 
     public Location(double latitude, double longitude, double altitude) {
         this.latitude = latitude;
