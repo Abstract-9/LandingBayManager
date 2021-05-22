@@ -1,6 +1,7 @@
 package com.jamz.landingBayManager.processors;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jamz.landingBayManager.util.Location;
 import org.apache.kafka.streams.KeyValue;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 public class BayAssignmentProcessor implements Processor<String, JsonNode, String, JsonNode> {
 
     private ProcessorContext<String, JsonNode> context;
+    private final JsonNodeFactory factory = new JsonNodeFactory(true);
     private KeyValueStore<String, JsonNode> bayStates;
 
     @Override
@@ -28,11 +30,14 @@ public class BayAssignmentProcessor implements Processor<String, JsonNode, Strin
     //TODO distance-biased decision making implemented. Gotta make tests.
     @Override
     public void process(Record<String, JsonNode> record) {
-        if (!record.key().equals("BayAssignmentRequest")) return;
+        // Since we listen on the same topic we produce to, lets filter out messages that aren't requests
+        if (!record.value().get("eventType").textValue().equals("AssignmentRequest")) return;
 
         boolean bayAssigned = false;
 
         JsonNode jsonNode = record.value();
+
+        ObjectNode response = new ObjectNode(factory);
 
         KeyValueIterator<String, JsonNode> iter = this.bayStates.all();
 
@@ -76,13 +81,12 @@ public class BayAssignmentProcessor implements Processor<String, JsonNode, Strin
                         new Record<String, JsonNode>(bay.key, newStatus, System.currentTimeMillis()),
                         Constants.STORE_OUTPUT_NAME
                 );
-                newStatus.remove("occupied_bays");
-                newStatus.remove("bay_count");
-                newStatus.put("status", "success");
-                newStatus.put("drone_id", jsonNode.get("drone_id").textValue());
+                response.put("eventType", "BayAssignment")
+                        .put("bay_id", bay.key)
+                        .set("geometry", bayStatus.get("geometry"));
                 this.context.forward(
-                        new Record<String, JsonNode>("BayAssignment", newStatus, System.currentTimeMillis()),
-                        Constants.MAIN_OUTPUT_NAME
+                        new Record<String, JsonNode>(record.key(), response, System.currentTimeMillis()),
+                        Constants.BAY_ASSIGNMENT_OUTPUT_NAME
                 );
                 bayAssigned = true;
                 break;
@@ -90,13 +94,10 @@ public class BayAssignmentProcessor implements Processor<String, JsonNode, Strin
         }
 
         if (!bayAssigned) {
-            ObjectNode resultStatus = jsonNode.deepCopy();
-            resultStatus.removeAll();
-            resultStatus.put("drone_id", jsonNode.get("drone_id").textValue());
-            resultStatus.put("status", "error");
+            response.put("eventType", "error");
             this.context.forward(
-                    new Record<String, JsonNode>("BayAssignment", resultStatus, System.currentTimeMillis()),
-                    Constants.MAIN_OUTPUT_NAME
+                    new Record<String, JsonNode>(record.key(), response, System.currentTimeMillis()),
+                    Constants.BAY_ASSIGNMENT_OUTPUT_NAME
             );
         }
     }

@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Properties;
 
 import com.jamz.landingBayManager.LandingBayManager;
+import static com.jamz.landingBayManager.LandingBayManager.Constants.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -49,12 +50,12 @@ public class BayAssignmentProcessorTests {
 
         testDriver = new TopologyTestDriver(topology, props);
 
-        inputTopic = testDriver.createInputTopic("LandingBayManager",
+        inputTopic = testDriver.createInputTopic(BAY_ASSIGNMENT_TOPIC,
                 Serdes.String().serializer(), jsonSerializer);
-        outputTopic = testDriver.createOutputTopic("LandingBayManager",
+        outputTopic = testDriver.createOutputTopic(BAY_ASSIGNMENT_TOPIC,
                 Serdes.String().deserializer(), jsonDeserializer);
 
-        bayStates = testDriver.getKeyValueStore("BayStore");
+        bayStates = testDriver.getKeyValueStore(BAY_STORE_NAME);
     }
 
     @BeforeEach
@@ -65,7 +66,6 @@ public class BayAssignmentProcessorTests {
         bay1.putObject("geometry");
         ((ObjectNode)bay1.get("geometry")).put("latitude", 45.420330);
         ((ObjectNode)bay1.get("geometry")).put("longitude", -75.680572);
-        ((ObjectNode)bay1.get("geometry")).put("altitude", 0);
         bay1.put("bay_count", 2);
         bay1.put("occupied_bays", 0);
         bay1.put("in_use", false);
@@ -81,17 +81,17 @@ public class BayAssignmentProcessorTests {
 
     @Test
     void testAssignmentRequest() {
-        inputTopic.pipeInput("BayAssignmentRequest",
-                construct_drone("0x1", new Location(45.2, -75.7, 10)));
+        inputTopic.pipeInput("0x1",
+                construct_event("AssignmentRequest", new Location(45.2, -75.7, 10)));
 
         // First, make sure that theres something in the output topic. If there isn't, it'll throw an error when we try
         // to read from it.
         assertFalse(outputTopic.isEmpty());
         // Read the output event and make sure that it matches the expected results
         KeyValue<String, JsonNode> result = outputTopic.readKeyValue();
-        assertEquals("BayAssignment", result.key);
-        assertEquals("success", result.value.get("status").textValue());
-        assertEquals("0x1", result.value.get("drone_id").textValue());
+        assertEquals("0x1", result.key);
+        assertEquals("BayAssignment", result.value.get("eventType").textValue());
+        assertEquals("1", result.value.get("bay_id").textValue());
 
         // Check the state store and ensure that it was also updated properly
         JsonNode bay = bayStates.get("1");
@@ -101,40 +101,39 @@ public class BayAssignmentProcessorTests {
 
     @Test
     void testBayFull() {
-        inputTopic.pipeInput("BayAssignmentRequest",
-                construct_drone("0x1", new Location(45.2, -75.7, 10)));
+        inputTopic.pipeInput("0x1",
+                construct_event("AssignmentRequest", new Location(45.2, -75.7, 10)));
 
         assertFalse(outputTopic.isEmpty());
         KeyValue<String, JsonNode> result = outputTopic.readKeyValue();
-        assertEquals("BayAssignment", result.key);
-        assertEquals("success", result.value.get("status").textValue());
-        assertEquals("0x1", result.value.get("drone_id").textValue());
+        assertEquals("0x1", result.key);
+        assertEquals("BayAssignment", result.value.get("eventType").textValue());
+        assertEquals("1", result.value.get("bay_id").textValue());
 
         JsonNode bay = bayStates.get("1");
         assertEquals(1, bay.get("occupied_bays").intValue());
         assertFalse(bay.get("in_use").booleanValue());
 
-        inputTopic.pipeInput("BayAssignmentRequest",
-                construct_drone("0x2", new Location(45.3, -75.8, 10)));
+        inputTopic.pipeInput("0x2",
+                construct_event("AssignmentRequest", new Location(45.3, -75.8, 10)));
 
         assertFalse(outputTopic.isEmpty());
         result = outputTopic.readKeyValue();
-        assertEquals("BayAssignment", result.key);
-        assertEquals("success", result.value.get("status").textValue());
-        assertEquals("0x2", result.value.get("drone_id").textValue());
+        assertEquals("0x2", result.key);
+        assertEquals("BayAssignment", result.value.get("eventType").textValue());
+        assertEquals("1", result.value.get("bay_id").textValue());
 
         bay = bayStates.get("1");
         assertEquals(2, bay.get("occupied_bays").intValue());
         assertFalse(bay.get("in_use").booleanValue());
 
-        inputTopic.pipeInput("BayAssignmentRequest",
-                construct_drone("0x3", new Location(45.38, -75.67, 10)));
+        inputTopic.pipeInput("0x3",
+                construct_event("AssignmentRequest", new Location(45.38, -75.67, 10)));
 
         assertFalse(outputTopic.isEmpty());
         result = outputTopic.readKeyValue();
-        assertEquals("BayAssignment", result.key);
-        assertEquals("error", result.value.get("status").textValue());
-        assertEquals("0x3", result.value.get("drone_id").textValue());
+        assertEquals("0x3", result.key);
+        assertEquals("error", result.value.get("eventType").textValue());
 
         bay = bayStates.get("1");
         assertEquals(2, bay.get("occupied_bays").intValue());
@@ -150,7 +149,6 @@ public class BayAssignmentProcessorTests {
         bay2.putObject("geometry");
         ((ObjectNode)bay2.get("geometry")).put("latitude", 45.424150);
         ((ObjectNode)bay2.get("geometry")).put("longitude", -75.686422);
-        ((ObjectNode)bay2.get("geometry")).put("altitude", 0);
         bay2.put("bay_count", 2);
         bay2.put("occupied_bays", 0);
         bay2.put("in_use", false);
@@ -159,14 +157,14 @@ public class BayAssignmentProcessorTests {
         bayStates.put("2", bay2);
 
         // This drone is closer to landing bay 2, so it should get assigned there
-        inputTopic.pipeInput("BayAssignmentRequest",
-                construct_drone("0x1", new Location(45.42718, -75.694394, 10)));
+        inputTopic.pipeInput("0x1",
+                construct_event("AssignmentRequest", new Location(45.42718, -75.694394, 10)));
 
         assertFalse(outputTopic.isEmpty());
         KeyValue<String, JsonNode> result = outputTopic.readKeyValue();
-        assertEquals("BayAssignment", result.key);
-        assertEquals("success", result.value.get("status").textValue());
-        assertEquals("0x1", result.value.get("drone_id").textValue());
+        assertEquals("0x1", result.key);
+        assertEquals("BayAssignment", result.value.get("eventType").textValue());
+        assertEquals("2", result.value.get("bay_id").textValue());
 
         JsonNode bay = bayStates.get("2");
         assertEquals(1, bay.get("occupied_bays").intValue());
@@ -176,9 +174,9 @@ public class BayAssignmentProcessorTests {
         assertFalse(bay.get("in_use").booleanValue());
     }
 
-    ObjectNode construct_drone(String id, Location location) {
+    ObjectNode construct_event(String eventType, Location location) {
         ObjectNode drone = new ObjectNode(nodeFactory);
-        drone.put("drone_id", id);
+        drone.put("eventType", eventType);
         drone.put("latitude", location.latitude);
         drone.put("longitude", location.longitude);
         drone.put("altitude", location.altitude);

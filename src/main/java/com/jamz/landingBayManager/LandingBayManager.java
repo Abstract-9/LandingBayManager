@@ -19,7 +19,6 @@ package com.jamz.landingBayManager;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.jamz.landingBayManager.processors.BayAccessProcessor;
 import com.jamz.landingBayManager.processors.BayAssignmentProcessor;
-import com.jamz.landingBayManager.processors.BayClearedProcessor;
 import com.jamz.landingBayManager.serdes.JSONSerde;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serde;
@@ -69,12 +68,12 @@ public class LandingBayManager {
 
 
 
-        topBuilder.addSource(Constants.MAIN_TOPIC, Constants.MAIN_TOPIC);
+        topBuilder.addSource(Constants.BAY_ACCESS_TOPIC, Constants.BAY_ACCESS_TOPIC)
+                .addSource(Constants.BAY_ASSIGNMENT_TOPIC, Constants.BAY_ASSIGNMENT_TOPIC);
 
         topBuilder
-                .addProcessor("BayAssignment", BayAssignmentProcessor::new, Constants.MAIN_TOPIC)
-                .addProcessor("BayAccess", BayAccessProcessor::new, Constants.MAIN_TOPIC)
-                .addProcessor("BayCleared", BayClearedProcessor::new, Constants.MAIN_TOPIC);
+                .addProcessor(Constants.ASSIGNMENT_PROCESSOR_NAME, BayAssignmentProcessor::new, Constants.BAY_ASSIGNMENT_TOPIC)
+                .addProcessor(Constants.ACCESS_PROCESSOR_NAME, BayAccessProcessor::new, Constants.BAY_ACCESS_TOPIC);
 
 
 
@@ -100,10 +99,14 @@ public class LandingBayManager {
             );
         }
 
-        topBuilder.addSink(Constants.MAIN_OUTPUT_NAME, Constants.MAIN_TOPIC,
-                Constants.ACCESS_PROCESSOR_NAME, Constants.ASSIGNMENT_PROCESSOR_NAME, Constants.CLEARED_PROCESSOR_NAME)
+        topBuilder.addSink(Constants.BAY_ACCESS_OUTPUT_NAME, Constants.BAY_ACCESS_TOPIC,
+                        Constants.ACCESS_PROCESSOR_NAME)
+
+                .addSink(Constants.BAY_ASSIGNMENT_OUTPUT_NAME, Constants.BAY_ASSIGNMENT_TOPIC,
+                        Constants.ASSIGNMENT_PROCESSOR_NAME)
+
                 .addSink(Constants.STORE_OUTPUT_NAME, Constants.BAY_STORE_TOPIC,
-                        Constants.ACCESS_PROCESSOR_NAME, Constants.ASSIGNMENT_PROCESSOR_NAME, Constants.CLEARED_PROCESSOR_NAME);
+                        Constants.ACCESS_PROCESSOR_NAME, Constants.ASSIGNMENT_PROCESSOR_NAME);
 
         return topBuilder;
     }
@@ -167,16 +170,17 @@ public class LandingBayManager {
     // This just helps keep everything in one place.
     public static class Constants {
         // Topics
-        public static final String MAIN_TOPIC = "LandingBayManager";
+        public static final String BAY_ASSIGNMENT_TOPIC = "BayAssignment";
+        public static final String BAY_ACCESS_TOPIC = "BayAccess";
         public static final String BAY_STORE_TOPIC = "LandingBays";
 
         // Internal names
+        public static final String BAY_ACCESS_OUTPUT_NAME = "AccessOutput";
+        public static final String BAY_ASSIGNMENT_OUTPUT_NAME = "AssignmentOutput";
         public static final String BAY_STORE_NAME = "BayStore";
         public static final String STORE_OUTPUT_NAME = "BayState";
-        public static final String ASSIGNMENT_PROCESSOR_NAME = "BayAssignment";
-        public static final String ACCESS_PROCESSOR_NAME = "BayAccess";
-        public static final String CLEARED_PROCESSOR_NAME = "BayCleared";
-        public static final String MAIN_OUTPUT_NAME = "Main-Output";
+        public static final String ASSIGNMENT_PROCESSOR_NAME = "BayAssignmentProcessor";
+        public static final String ACCESS_PROCESSOR_NAME = "BayAccessProcessor";
 
     }
 }

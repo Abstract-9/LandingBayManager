@@ -25,38 +25,58 @@ public class BayAccessProcessor implements Processor<String, JsonNode, String, J
 
     @Override
     public void process(Record<String, JsonNode> record) {
-        if (!record.key().equals("BayAccessRequest") && !record.key().equals("BayAccessUpdate")) return;
+        if (!record.value().get("eventType").textValue().equals("AccessRequest") &&
+            !record.value().get("eventType").textValue().equals("AccessComplete")) return;
 
         JsonNode jsonNode = record.value();
 
-        JsonNode bay = this.bayStates.get(jsonNode.get("bay").textValue());
+        JsonNode bay = this.bayStates.get(jsonNode.get("bay_id").textValue());
         ObjectNode bayWr = bay.deepCopy();
         ObjectNode response = jsonNode.deepCopy();
 
-        if (bay.get("in_use").booleanValue()) {
-            // Put this drone in the queue
-            ((ArrayNode) bayWr.get("queue")).add(jsonNode.get("drone_id").textValue());
-            this.context.forward(
-                    new Record<String, JsonNode>(
-                            jsonNode.get("bay").textValue(), bayWr, System.currentTimeMillis()), "BayState"
-            );
+        if (jsonNode.get("eventType").textValue().equals("AccessRequest")) {
+            if (bay.get("in_use").booleanValue()) {
+                // Put this drone in the queue
+                ((ArrayNode) bayWr.get("queue")).add(jsonNode.get("drone_id").textValue());
+                this.context.forward(
+                        new Record<String, JsonNode>(
+                                jsonNode.get("bay").textValue(), bayWr, System.currentTimeMillis()), "BayState"
+                );
 
-            // Now, return the response. Drone will wait until we tell it that it can access the bay.
-            response.put("status", "busy");
+                // Now, return the response. Drone will wait until we tell it that it can access the bay.
+                response.put("eventType", "AccessDenied");
+            } else {
+                bayWr.put("in_use", true);
+                this.context.forward(
+                        new Record<String, JsonNode>(jsonNode.get("bay_id").textValue(), bayWr, System.currentTimeMillis()),
+                        Constants.STORE_OUTPUT_NAME
+                );
+
+                response.put("eventType", "AccessGranted");
+            }
+
+            this.context.forward(
+                    new Record<>(record.key(), response, System.currentTimeMillis()),
+                    Constants.BAY_ACCESS_OUTPUT_NAME
+            );
         } else {
-            bayWr.put("in_use", true);
-            this.context.forward(
-                    new Record<String, JsonNode>(jsonNode.get("bay").textValue(), bayWr, System.currentTimeMillis()),
-                    Constants.STORE_OUTPUT_NAME
-            );
-
-            response.put("status", "free");
+            ArrayNode bayQueue = (ArrayNode) bay.get("queue");
+            if (bayQueue.isEmpty()) {
+                bayWr.put("in_use", false);
+                this.context.forward(
+                        new Record<String, JsonNode>(jsonNode.get("bay_id").textValue(), bayWr, System.currentTimeMillis()),
+                        Constants.STORE_OUTPUT_NAME
+                );
+            } else {
+                String nextInLine = bayQueue.get(0).textValue();
+                bayQueue.remove(0);
+                response.put("eventType", "AccessGranted");
+                this.context.forward(
+                        new Record<String, JsonNode>(nextInLine, response, System.currentTimeMillis()),
+                        Constants.BAY_ACCESS_OUTPUT_NAME
+                );
+            }
         }
-
-        this.context.forward(
-                new Record<>("BayAccessResponse", response, System.currentTimeMillis()),
-                Constants.MAIN_OUTPUT_NAME
-        );
     }
 
 
