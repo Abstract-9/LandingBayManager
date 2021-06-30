@@ -44,7 +44,7 @@ public class BayAccessProcessor implements Processor<String, JsonNode, String, J
                 );
 
                 // Now, return the response. Drone will wait until we tell it that it can access the bay.
-                response.put("eventType", "AccessDenied");
+                response.put("eventType", "AccessQueued");
             } else {
                 bayWr.put("in_use", true);
                 this.context.forward(
