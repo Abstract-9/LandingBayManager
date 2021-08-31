@@ -20,6 +20,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.jamz.landingBayManager.processors.BayAccessProcessor;
 import com.jamz.landingBayManager.processors.BayAssignmentProcessor;
 import com.jamz.landingBayManager.serdes.JSONSerde;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
@@ -49,7 +51,18 @@ public class LandingBayManager {
     public static void main(String[] args) {
         Properties props = new Properties();
         props.put(StreamsConfig.APPLICATION_ID_CONFIG, "streams-landing-bay-manager");
-        props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "confluent:9092");
+        props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "pkc-419q3.us-east4.gcp.confluent.cloud:9092");
+        // Security Config
+        props.put(StreamsConfig.SECURITY_PROTOCOL_CONFIG, "SASL_SSL");
+        props.put(SaslConfigs.SASL_MECHANISM, "PLAIN");
+        props.put(SaslConfigs.SASL_JAAS_CONFIG, "org.apache.kafka.common.security.plain.PlainLoginModule required " +
+                "username=\"PSAFM6VH7LWNGV5D\" password=\"DfAiu9RSyI/udfvUm9j3HUtxHEECfrR9+K7tE8NTCI5g1x2am9ZkRfFWUSf+uT8G\";");
+        // Performance Config
+        props.put(StreamsConfig.producerPrefix(ProducerConfig.RETRIES_CONFIG), 2147483647);
+        props.put("producer.confluent.batch.expiry.ms", 9223372036854775807L);
+        props.put(StreamsConfig.producerPrefix(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG), 300000);
+        props.put(StreamsConfig.producerPrefix(ProducerConfig.MAX_BLOCK_MS_CONFIG), 9223372036854775807L);
+        // Serdes Config
         props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
         props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, JSONSerde.class);
 
@@ -77,27 +90,17 @@ public class LandingBayManager {
 
 
 
-        if (!testing) {
-            topBuilder.addGlobalStore(
-                    Stores.keyValueStoreBuilder(Stores.persistentKeyValueStore(Constants.BAY_STORE_NAME), Serdes.String(), jsonSerde),
-                    "baySource",
-                    Serdes.String().deserializer(),
-                    jsonDeserializer,
-                    Constants.BAY_STORE_TOPIC,
-                    "Bay-State-Updater",
-                    () -> new GlobalStoreUpdater<>(Constants.BAY_STORE_NAME)
-            );
-        } else {
-            topBuilder.addGlobalStore(
-                    Stores.keyValueStoreBuilder(Stores.persistentKeyValueStore(Constants.BAY_STORE_NAME), Serdes.String(), jsonSerde).withLoggingDisabled(),
-                    "baySource",
-                    Serdes.String().deserializer(),
-                    jsonDeserializer,
-                    Constants.BAY_STORE_TOPIC,
-                    "Bay-State-Updater",
-                    () -> new GlobalStoreUpdater<>(Constants.BAY_STORE_NAME)
-            );
-        }
+
+        topBuilder.addGlobalStore(
+                Stores.keyValueStoreBuilder(Stores.persistentKeyValueStore(Constants.BAY_STORE_NAME), Serdes.String(), jsonSerde).withLoggingDisabled(),
+                "baySource",
+                Serdes.String().deserializer(),
+                jsonDeserializer,
+                Constants.BAY_STORE_TOPIC,
+                "Bay-State-Updater",
+                () -> new GlobalStoreUpdater<>(Constants.BAY_STORE_NAME)
+        );
+
 
         topBuilder.addSink(Constants.BAY_ACCESS_OUTPUT_NAME, Constants.BAY_ACCESS_TOPIC,
                         Constants.ACCESS_PROCESSOR_NAME)

@@ -30,6 +30,8 @@ public class BayAccessProcessor implements Processor<String, JsonNode, String, J
 
         JsonNode jsonNode = record.value();
 
+        // Sanity check
+        if (!jsonNode.has("bay_id")) return;
         JsonNode bay = this.bayStates.get(jsonNode.get("bay_id").textValue());
         ObjectNode bayWr = bay.deepCopy();
         ObjectNode response = jsonNode.deepCopy();
@@ -37,10 +39,10 @@ public class BayAccessProcessor implements Processor<String, JsonNode, String, J
         if (jsonNode.get("eventType").textValue().equals("AccessRequest")) {
             if (bay.get("in_use").booleanValue()) {
                 // Put this drone in the queue
-                ((ArrayNode) bayWr.get("queue")).add(jsonNode.get("drone_id").textValue());
+                ((ArrayNode) bayWr.get("queue")).add(record.key());
                 this.context.forward(
                         new Record<String, JsonNode>(
-                                jsonNode.get("bay").textValue(), bayWr, System.currentTimeMillis()), "BayState"
+                                jsonNode.get("bay_id").textValue(), bayWr, System.currentTimeMillis()), "BayState"
                 );
 
                 // Now, return the response. Drone will wait until we tell it that it can access the bay.

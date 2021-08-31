@@ -46,10 +46,13 @@ public class BayAssignmentProcessor implements Processor<String, JsonNode, Strin
         ArrayList<KeyValue<String, JsonNode>> bayList = new ArrayList<>();
         iter.forEachRemaining(bayList::add);
 
+        // Sanity check
+        if (!jsonNode.has("geometry") || jsonNode.get("geometry").isNull()) return;
+
         Location droneLocation = new Location(
-                jsonNode.get("latitude").doubleValue(),
-                jsonNode.get("longitude").doubleValue(),
-                jsonNode.get("altitude").doubleValue()
+                jsonNode.get("geometry").get("lat").doubleValue(),
+                jsonNode.get("geometry").get("lng").doubleValue(),
+                jsonNode.get("geometry").get("alt").doubleValue()
         );
 
         // Sort the landing bays by distance
@@ -82,8 +85,9 @@ public class BayAssignmentProcessor implements Processor<String, JsonNode, Strin
                         Constants.STORE_OUTPUT_NAME
                 );
                 response.put("eventType", "BayAssignment")
-                        .put("bay_id", bay.key)
-                        .set("geometry", bayStatus.get("geometry"));
+                        .set("bay", new ObjectNode(factory)
+                                .put("id", bay.key)
+                                .set("geometry", bayStatus.get("geometry")));
                 this.context.forward(
                         new Record<String, JsonNode>(record.key(), response, System.currentTimeMillis()),
                         Constants.BAY_ASSIGNMENT_OUTPUT_NAME
