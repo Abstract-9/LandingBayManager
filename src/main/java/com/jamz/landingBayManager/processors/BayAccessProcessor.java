@@ -72,6 +72,11 @@ public class BayAccessProcessor implements Processor<String, JsonNode, String, J
             } else {
                 String nextInLine = bayQueue.get(0).textValue();
                 bayQueue.remove(0);
+                bayWr.set("queue", bayQueue);
+                this.context.forward(
+                        new Record<String, JsonNode>(jsonNode.get("bay_id").textValue(), bayWr, System.currentTimeMillis()),
+                        Constants.STORE_OUTPUT_NAME
+                );
                 response.put("eventType", "AccessGranted");
                 this.context.forward(
                         new Record<String, JsonNode>(nextInLine, response, System.currentTimeMillis()),
