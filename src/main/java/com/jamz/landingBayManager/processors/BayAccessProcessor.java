@@ -31,7 +31,7 @@ public class BayAccessProcessor implements Processor<String, JsonNode, String, J
         JsonNode jsonNode = record.value();
 
         // Sanity check
-        if (!jsonNode.has("bay_id")) return;
+        if (!jsonNode.has("bay_id") || !jsonNode.get("bay_id").isTextual()) return;
         JsonNode bay = this.bayStates.get(jsonNode.get("bay_id").textValue());
         ObjectNode bayWr = bay.deepCopy();
         ObjectNode response = jsonNode.deepCopy();
